@@ -1,0 +1,212 @@
+import asyncio
+import contextlib
+import html
+import os
+import shutil
+import sys
+import threading
+import time
+from pathlib import Path
+from typing import Callable
+from .catalog import MODEL_VARIANTS
+
+
+Progress = Callable[[int, str], None]
+
+
+class MockBackend:
+    name = "mock"
+    ready = True
+
+    def __init__(self, output_dir: Path):
+        self.output_dir = output_dir
+        self.cancelled = threading.Event()
+
+    def availability(self) -> dict[str, bool]: return {}
+
+    async def execute(self, job: dict, inputs: dict[str, Path | list[Path]], progress: Progress) -> list[Path]:
+        self.cancelled.clear()
+        for step in range(1, 6):
+            if self.cancelled.is_set(): raise asyncio.CancelledError()
+            await asyncio.sleep(.12); progress(step * 18, "mock inference")
+        target = self.output_dir / job["id"]
+        target.mkdir(parents=True, exist_ok=True)
+        output = target / "preview.svg"
+        prompt = html.escape(job.get("prompt") or "Media transformation")
+        model = html.escape(job["model"])
+        output.write_text(f'''<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="768"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#173d31"/><stop offset="1" stop-color="#b2674b"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><circle cx="1040" cy="160" r="280" fill="#f2d27a" opacity=".16"/><text x="72" y="105" fill="#f1d47c" font-family="Arial" font-size="24" letter-spacing="4">LOCAL VIA · MOCK OUTPUT</text><text x="72" y="590" fill="white" font-family="Arial" font-size="50">{model}</text><foreignObject x="72" y="625" width="1040" height="100"><div xmlns="http://www.w3.org/1999/xhtml" style="color:#e1e9e4;font:26px Arial;line-height:1.35">{prompt}</div></foreignObject></svg>''', encoding="utf-8")
+        progress(100, "complete")
+        return [output]
+
+    def cancel(self) -> None: self.cancelled.set()
+
+
+class WanGPBackend:
+    name = "wangp"
+
+    def __init__(self, root: Path, output_dir: Path, cli_args: list[str], idle_timeout_seconds: int = 3600, preload_mb: int = 0):
+        self.root, self.output_dir, self.cli_args = root.resolve(), output_dir.resolve(), cli_args
+        self.session = None
+        self.current_job = None
+        self.lock = threading.Lock()
+        self.execution_lock = threading.Lock()
+        self.idle_lock = threading.Lock()
+        self.idle_timeout_seconds = max(0, idle_timeout_seconds)
+        self.preload_mb = max(0, preload_mb)
+        self.idle_timer: threading.Timer | None = None
+        self.idle_generation = 0
+        self.loaded_model: str | None = None
+        self.last_used_at: float | None = None
+
+    @property
+    def ready(self) -> bool: return (self.root / "shared" / "api.py").exists()
+
+    def _session(self):
+        with self.lock:
+            if self.session is None:
+                if not self.ready: raise RuntimeError(f"WanGP no está instalado en {self.root}")
+                sys.path.insert(0, str(self.root)) if str(self.root) not in sys.path else None
+                os.chdir(self.root)
+                from shared.api import init
+                self.session = init(root=self.root, output_dir=self.output_dir, cli_args=self.cli_args, console_output=True)
+            return self.session
+
+    def availability(self) -> dict[str, bool]:
+        if not self.ready: return {}
+        try:
+            session = self._session()
+            availability = {row["model_type"]: bool(row.get("available")) for row in session.list_model_availability()}
+            for model_id, variant in MODEL_VARIANTS.items():
+                base_available = availability.get(variant["base_model"], False)
+                files_available = all((self.root / path).is_file() for path in variant.get("required_files", ()))
+                availability[model_id] = base_available and files_available
+            return availability
+        except Exception: return {}
+
+    async def execute(self, job: dict, inputs: dict[str, Path | list[Path]], progress: Progress) -> list[Path]:
+        return await asyncio.to_thread(self._execute_sync, job, inputs, progress)
+
+    def _execute_sync(self, job: dict, inputs: dict[str, Path | list[Path]], progress: Progress) -> list[Path]:
+        self._cancel_idle_release()
+        try:
+            with self.execution_lock:
+                return self._execute_sync_locked(job, inputs, progress)
+        except BaseException:
+            # A failed native CUDA kernel can leave the loaded model/context in an
+            # unusable state. Never advertise or retain that model as a warm cache.
+            with self.execution_lock:
+                if self.session is not None:
+                    with contextlib.suppress(Exception):
+                        self.session.close()
+                self.loaded_model = None
+            raise
+        finally:
+            self.last_used_at = time.time()
+            if self.loaded_model is not None:
+                self._schedule_idle_release()
+
+    def _execute_sync_locked(self, job: dict, inputs: dict[str, Path | list[Path]], progress: Progress) -> list[Path]:
+        session = self._session()
+        if job["task"] == "audio.convert":
+            source = inputs.get("audio_source")
+            reference = inputs.get("voice_reference")
+            if not isinstance(source, Path) or not isinstance(reference, Path): raise ValueError("SeedVC requiere audio original y voz destino")
+            api_job = session.submit_audio_postprocessing(str(source), postprocess_audio="seedvc_one_speaker", replace_voice_sample=str(reference))
+        else:
+            variant = MODEL_VARIANTS.get(job["model"])
+            model_type = variant["base_model"] if variant else job["model"]
+            settings = session.get_default_settings(model_type) or {}
+            parameters = {key: value for key, value in job["parameters"].items() if value is not None}
+            mode_parts = [parameters.pop(key, "") for key in ("guide_preprocess", "mask_preprocess", "image_ref_mode")]
+            settings.update(parameters)
+            if variant:
+                settings.update(variant["overrides"])
+            if any(str(value) for value in mode_parts):
+                settings["video_prompt_type"] = "".join(str(value) for value in mode_parts if value is not None)
+            settings.update({"model_type": model_type, "prompt": job.get("prompt", "")})
+            self._bind_inputs(model_type, settings, inputs)
+
+            class Callbacks:
+                def on_progress(self, update): progress(int(update.progress), str(update.phase))
+                def on_status(self, status): progress(-1, str(status))
+            api_job = session.submit_task(settings, callbacks=Callbacks())
+        self.loaded_model = job["model"]
+        self.current_job = api_job
+        try:
+            result = api_job.result()
+        finally:
+            self.current_job = None
+        if not result.success:
+            message = "; ".join(error.message for error in result.errors) or "WanGP generation failed"
+            raise RuntimeError(message)
+        return [Path(path) for path in result.generated_files]
+
+    @staticmethod
+    def _bind_inputs(model: str, settings: dict, inputs: dict[str, Path | list[Path]]) -> None:
+        """Bind explicit WanGP media roles without guessing semantics from MIME types."""
+        allowed = {
+            "image_start", "image_end", "image_refs", "image_guide", "image_mask",
+            "video_source", "video_guide", "video_refs", "video_mask",
+            "audio_guide", "audio_guide2",
+        }
+        aliases = {"video_source": "video_guide", "video_refs": "video_guide"}
+        primary = inputs.get("image_primary")
+        references = inputs.get("image_refs")
+        if primary is not None:
+            primary_path = primary[0] if isinstance(primary, list) else primary
+            reference_paths = references if isinstance(references, list) else ([references] if references is not None else [])
+            settings["image_refs"] = [str(primary_path), *(str(path) for path in reference_paths)]
+        for role, value in inputs.items():
+            if role == "image_primary" or (role == "image_refs" and primary is not None) or role not in allowed:
+                continue
+            target = aliases.get(role, role)
+            if role == "video_refs" and isinstance(value, list):
+                settings["video_guide"] = str(value[0])
+                if len(value) > 1:
+                    settings["video_guide2"] = str(value[1])
+                continue
+            if isinstance(value, list):
+                rendered = [str(path) for path in value]
+                settings[target] = rendered if target == "image_refs" else rendered[0]
+            else:
+                settings[target] = str(value)
+
+    def _cancel_idle_release(self) -> None:
+        with self.idle_lock:
+            self.idle_generation += 1
+            if self.idle_timer is not None:
+                self.idle_timer.cancel()
+                self.idle_timer = None
+
+    def _schedule_idle_release(self) -> None:
+        if self.idle_timeout_seconds <= 0:
+            return
+        with self.idle_lock:
+            self.idle_generation += 1
+            generation = self.idle_generation
+            timer = threading.Timer(self.idle_timeout_seconds, self._release_after_idle, args=(generation,))
+            timer.daemon = True
+            self.idle_timer = timer
+            timer.start()
+
+    def _release_after_idle(self, generation: int) -> None:
+        with self.execution_lock:
+            with self.idle_lock:
+                if generation != self.idle_generation or self.current_job is not None:
+                    return
+                self.idle_timer = None
+            if self.session is not None:
+                self.session.close()
+            self.loaded_model = None
+
+    def cache_status(self) -> dict[str, str | int | float | None]:
+        idle_for = None if self.last_used_at is None else max(0.0, time.time() - self.last_used_at)
+        return {
+            "loaded_model": self.loaded_model,
+            "idle_timeout_seconds": self.idle_timeout_seconds,
+            "idle_for_seconds": idle_for,
+            "preload_mb": self.preload_mb,
+        }
+
+    def cancel(self) -> None:
+        if self.current_job is not None: self.current_job.cancel()
