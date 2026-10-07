@@ -1,4 +1,4 @@
-param([string]$ModelRoot = "")
+﻿param([string]$ModelRoot = "")
 
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path

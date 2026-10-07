@@ -6,15 +6,22 @@ out/
 .env.local
 .runtime/
 data/
+.venv/
 worker/.venv/
-worker/**/__pycache__/
-worker/.pytest_cache/
+**/__pycache__/
+.pytest_cache/
 *.pyc
 *.log
 *.tsbuildinfo
 test-results/
+test-results-isolated/
 playwright-report/
 
+# Secrets and per-machine configuration written by the install scripts
+hub/.env
+hub/certs/
+worker/.env
+worker/certs/
 
-.vercel
-test-results-isolated/
+# Quick (shortened) bandwidth runs; only the full run is published
+docs/bandwidth/results-quick.json

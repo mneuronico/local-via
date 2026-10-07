@@ -1,0 +1,563 @@
+{
+  "measured_at": "2026-10-07T22:44:24.646Z",
+  "method": {
+    "transport": "HTTPS (TLS 1.3, HTTP/1.1) through a byte-counting TCP relay per student; bytes are TCP payload (TLS records included, TCP/IP headers excluded).",
+    "browser": "Chromium 151.0.7922.34 via Playwright, cold cache per student",
+    "workers": "8 mock workers returning real RTX 2060 outputs; simulated job duration 60 s",
+    "samples": {
+      "image.jpg": 156463,
+      "video.mp4": 5686476,
+      "audio.wav": 11521400,
+      "input-image.jpg": 41920
+    }
+  },
+  "single_user": {
+    "first_load_and_login": {
+      "seconds": 1.7,
+      "up_bytes": 24969,
+      "down_bytes": 280181,
+      "total_bytes": 305150,
+      "avg_kbit_s": 1477.72
+    },
+    "idle_logged_in": {
+      "seconds": 120,
+      "up_bytes": 8110,
+      "down_bytes": 14882,
+      "total_bytes": 22992,
+      "avg_kbit_s": 1.53
+    },
+    "reload_with_warm_cache": {
+      "seconds": 0.6,
+      "up_bytes": 18444,
+      "down_bytes": 18464,
+      "total_bytes": 36908,
+      "avg_kbit_s": 496.24
+    },
+    "image_job": {
+      "output_file_bytes": 156463,
+      "input_file_bytes": 0,
+      "upload_and_submit": {
+        "seconds": 0.1,
+        "up_bytes": 1539,
+        "down_bytes": 2516,
+        "total_bytes": 4055,
+        "avg_kbit_s": 228.45
+      },
+      "waiting_while_queued_or_running": {
+        "seconds": 60.4,
+        "up_bytes": 15552,
+        "down_bytes": 33027,
+        "total_bytes": 48579,
+        "avg_kbit_s": 6.44
+      },
+      "view_result": {
+        "seconds": 1.6,
+        "up_bytes": 704,
+        "down_bytes": 157354,
+        "total_bytes": 158058,
+        "avg_kbit_s": 814.21
+      },
+      "download_result": {
+        "seconds": 0.8,
+        "up_bytes": 467,
+        "down_bytes": 157358,
+        "total_bytes": 157825,
+        "avg_kbit_s": 1627.06
+      },
+      "job_total": {
+        "seconds": 62.8,
+        "up_bytes": 18262,
+        "down_bytes": 350255,
+        "total_bytes": 368517,
+        "avg_kbit_s": 46.93
+      }
+    },
+    "video_job": {
+      "output_file_bytes": 5686476,
+      "input_file_bytes": 41920,
+      "upload_and_submit": {
+        "seconds": 0.1,
+        "up_bytes": 45917,
+        "down_bytes": 5347,
+        "total_bytes": 51264,
+        "avg_kbit_s": 3154.71
+      },
+      "waiting_while_queued_or_running": {
+        "seconds": 60.4,
+        "up_bytes": 15552,
+        "down_bytes": 34096,
+        "total_bytes": 49648,
+        "avg_kbit_s": 6.58
+      },
+      "view_result": {
+        "seconds": 2.3,
+        "up_bytes": 7624,
+        "down_bytes": 6110284,
+        "total_bytes": 6117908,
+        "avg_kbit_s": 21123.55
+      },
+      "download_result": {
+        "seconds": 0.7,
+        "up_bytes": 467,
+        "down_bytes": 5694807,
+        "total_bytes": 5695274,
+        "avg_kbit_s": 66417.19
+      },
+      "job_total": {
+        "seconds": 63.5,
+        "up_bytes": 69560,
+        "down_bytes": 11844534,
+        "total_bytes": 11914094,
+        "avg_kbit_s": 1500.87
+      }
+    },
+    "audio_job": {
+      "output_file_bytes": 11521400,
+      "input_file_bytes": 0,
+      "upload_and_submit": {
+        "seconds": 0.1,
+        "up_bytes": 1610,
+        "down_bytes": 2566,
+        "total_bytes": 4176,
+        "avg_kbit_s": 238.63
+      },
+      "waiting_while_queued_or_running": {
+        "seconds": 60.3,
+        "up_bytes": 15552,
+        "down_bytes": 33670,
+        "total_bytes": 49222,
+        "avg_kbit_s": 6.53
+      },
+      "view_result": {
+        "seconds": 2.2,
+        "up_bytes": 7721,
+        "down_bytes": 6455704,
+        "total_bytes": 6463425,
+        "avg_kbit_s": 23817.32
+      },
+      "download_result": {
+        "seconds": 0.7,
+        "up_bytes": 467,
+        "down_bytes": 11537564,
+        "total_bytes": 11538031,
+        "avg_kbit_s": 128736.75
+      },
+      "job_total": {
+        "seconds": 63.4,
+        "up_bytes": 25350,
+        "down_bytes": 18029504,
+        "total_bytes": 18054854,
+        "avg_kbit_s": 2279.98
+      }
+    }
+  },
+  "concurrency": {
+    "twelve_students_video": {
+      "students": 12,
+      "generating_at_once": 8,
+      "queued": 4,
+      "duration_seconds": 125.4,
+      "total_bytes": 140421420,
+      "avg_kbit_s": 8961.3,
+      "peak_1s_kbit_s": 273436.8,
+      "per_student_total_bytes": [
+        11590530,
+        11587893,
+        11638179,
+        11966283,
+        11766769,
+        11588066,
+        11638156,
+        11590620,
+        11719725,
+        12045389,
+        11588036,
+        11587903
+      ],
+      "per_student_waiting_kbit_s": [
+        6.69,
+        6.69,
+        6.57,
+        6.57,
+        6.57,
+        6.68,
+        6.57,
+        6.7,
+        6.6,
+        6.71,
+        6.68,
+        6.68
+      ],
+      "lan_hub_workers": {
+        "seconds": 144.3,
+        "up_bytes": 68467234,
+        "down_bytes": 758700,
+        "total_bytes": 69225934,
+        "avg_kbit_s": 3838.26
+      },
+      "series": [
+        {
+          "t": 0,
+          "kbit_s": 955.5
+        },
+        {
+          "t": 1,
+          "kbit_s": 4921.5
+        },
+        {
+          "t": 3,
+          "kbit_s": 15.8
+        },
+        {
+          "t": 4,
+          "kbit_s": 174.1
+        },
+        {
+          "t": 6,
+          "kbit_s": 189.9
+        },
+        {
+          "t": 8,
+          "kbit_s": 15.8
+        },
+        {
+          "t": 9,
+          "kbit_s": 173.8
+        },
+        {
+          "t": 11,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 12,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 14,
+          "kbit_s": 189.8
+        },
+        {
+          "t": 15,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 16,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 17,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 19,
+          "kbit_s": 189.8
+        },
+        {
+          "t": 20,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 21,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 22,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 23,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 24,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 25,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 26,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 27,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 28,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 29,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 30,
+          "kbit_s": 0.2
+        },
+        {
+          "t": 31,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 34,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 36,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 39,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 41,
+          "kbit_s": 189.6
+        },
+        {
+          "t": 42,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 44,
+          "kbit_s": 206.2
+        },
+        {
+          "t": 46,
+          "kbit_s": 206.2
+        },
+        {
+          "t": 47,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 49,
+          "kbit_s": 206.2
+        },
+        {
+          "t": 50,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 51,
+          "kbit_s": 189.7
+        },
+        {
+          "t": 52,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 53,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 54,
+          "kbit_s": 189.8
+        },
+        {
+          "t": 55,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 56,
+          "kbit_s": 189.8
+        },
+        {
+          "t": 57,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 58,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 59,
+          "kbit_s": 189.8
+        },
+        {
+          "t": 60,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 61,
+          "kbit_s": 132.3
+        },
+        {
+          "t": 62,
+          "kbit_s": 97399.8
+        },
+        {
+          "t": 63,
+          "kbit_s": 42.4
+        },
+        {
+          "t": 64,
+          "kbit_s": 97651.6
+        },
+        {
+          "t": 65,
+          "kbit_s": 271587.5
+        },
+        {
+          "t": 67,
+          "kbit_s": 273436.8
+        },
+        {
+          "t": 69,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 71,
+          "kbit_s": 32
+        },
+        {
+          "t": 72,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 74,
+          "kbit_s": 159.5
+        },
+        {
+          "t": 77,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 79,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 81,
+          "kbit_s": 32
+        },
+        {
+          "t": 82,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 84,
+          "kbit_s": 159.5
+        },
+        {
+          "t": 87,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 89,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 91,
+          "kbit_s": 32
+        },
+        {
+          "t": 92,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 94,
+          "kbit_s": 159.5
+        },
+        {
+          "t": 97,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 99,
+          "kbit_s": 63.4
+        },
+        {
+          "t": 101,
+          "kbit_s": 32
+        },
+        {
+          "t": 102,
+          "kbit_s": 79.6
+        },
+        {
+          "t": 104,
+          "kbit_s": 175.7
+        },
+        {
+          "t": 106,
+          "kbit_s": 16.6
+        },
+        {
+          "t": 107,
+          "kbit_s": 80
+        },
+        {
+          "t": 109,
+          "kbit_s": 80
+        },
+        {
+          "t": 110,
+          "kbit_s": 16.2
+        },
+        {
+          "t": 111,
+          "kbit_s": 32
+        },
+        {
+          "t": 112,
+          "kbit_s": 80
+        },
+        {
+          "t": 113,
+          "kbit_s": 16.2
+        },
+        {
+          "t": 114,
+          "kbit_s": 159.5
+        },
+        {
+          "t": 115,
+          "kbit_s": 16.2
+        },
+        {
+          "t": 117,
+          "kbit_s": 79.7
+        },
+        {
+          "t": 118,
+          "kbit_s": 16.2
+        },
+        {
+          "t": 119,
+          "kbit_s": 63.5
+        },
+        {
+          "t": 120,
+          "kbit_s": 16.2
+        },
+        {
+          "t": 121,
+          "kbit_s": 32
+        },
+        {
+          "t": 122,
+          "kbit_s": 8509.5
+        },
+        {
+          "t": 123,
+          "kbit_s": 180568.5
+        },
+        {
+          "t": 124,
+          "kbit_s": 96.1
+        },
+        {
+          "t": 125,
+          "kbit_s": 182248.8
+        }
+      ]
+    }
+  },
+  "lan_hub_to_workers_single_user_phase": {
+    "up_bytes": 17539150,
+    "down_bytes": 192154,
+    "note": "worker→hub uploads count as 'up'"
+  }
+}

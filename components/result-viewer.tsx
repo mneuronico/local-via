@@ -1,9 +1,10 @@
 "use client";
-/* Signed worker URLs are arbitrary and expiring, so Next image optimization cannot proxy them. */
+/* Hub artifact URLs need the session cookie, so Next image optimization cannot proxy them. */
 /* eslint-disable @next/next/no-img-element */
 
-import { AudioLines, CircleAlert, Download, Expand, Image as ImageIcon, LoaderCircle, Sparkles, X } from "lucide-react";
+import { AudioLines, CircleAlert, Clock3, Download, Expand, Image as ImageIcon, LoaderCircle, Sparkles, Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { formatWait } from "@/lib/api";
 import { describePhase } from "@/lib/job-phase";
 import type { Artifact, Job } from "@/lib/types";
 
@@ -14,27 +15,27 @@ function Media({ artifact, alt, large = false }: { artifact: Artifact; alt: stri
   return <a href={artifact.url} target="_blank" rel="noreferrer">Abrir {artifact.name}</a>;
 }
 
-export function ResultViewer({ job, modelName, onCancel }: { job?: Job; modelName?: string; onCancel?: () => void }) {
+export function ResultViewer({ job, modelName, onCancel, onDelete }: { job?: Job; modelName?: string; onCancel?: () => void; onDelete?: () => void }) {
   const [open, setOpen] = useState<Artifact | null>(null);
-  const running = job?.status === "running" || job?.status === "queued";
-  const phase = describePhase(job?.phase || job?.status);
+    const phase = describePhase(job?.phase || job?.status);
   const artifact = job?.artifacts[0];
   const activeOpen = job?.status === "succeeded" && open && job.artifacts.some((item) => item.id === open.id) ? open : null;
   return <>
     <aside className="liveResult" aria-live="polite">
-      <div className="liveResultHead"><div><span className="sectionKicker">Resultado actual</span><h2>{modelName ?? "Vista previa"}</h2></div>{job && <span className={`jobState ${job.status}`}>{job.status === "succeeded" ? "Listo" : job.status === "failed" ? "Error" : job.status === "cancelled" ? "Cancelado" : "Generando"}</span>}</div>
+      <div className="liveResultHead"><div><span className="sectionKicker">Resultado actual</span><h2>{modelName ?? "Vista previa"}</h2></div>{job && <span className={`jobState ${job.status}`}>{job.status === "succeeded" ? "Listo" : job.status === "failed" ? "Error" : job.status === "cancelled" ? "Cancelado" : job.status === "queued" ? "En cola" : "Generando"}</span>}</div>
       {!job && <div className="emptyLive"><ImageIcon /><h3>Acá aparecerá lo generado</h3><p>Al terminar un trabajo podrás verlo, ampliarlo y descargarlo sin bajar hasta el historial.</p></div>}
-      {running && <div className="renderingLive"><LoaderCircle className="spin" /><h3>{phase.label}</h3><p className="phaseHint">{phase.hint}</p><p>{job.prompt}</p><div className="bigProgress"><span style={{ width: `${Math.max(job.progress, 2)}%` }} /></div><small>{job.progress}%</small>{onCancel && <button onClick={onCancel}>Cancelar</button>}</div>}
-      {job?.status === "failed" && <div className="failedLive"><CircleAlert /><h3>No se pudo generar</h3><p>{job.error || "El worker informó un error."}</p></div>}
+      {job?.status === "queued" && <div className="renderingLive queuedLive"><Clock3 /><h3>{job.queue ? `Puesto ${job.queue.position} en la cola` : phase.label}</h3><p className="phaseHint">{job.queue ? `Empieza en ${formatWait(job.queue.estimated_wait_seconds)} (estimación según los tiempos recientes de la sala).` : phase.hint}</p><p>{job.prompt}</p>{onCancel && <button onClick={onCancel}>Salir de la cola</button>}</div>}
+      {job?.status === "running" && <div className="renderingLive"><LoaderCircle className="spin" /><h3>{phase.label}</h3><p className="phaseHint">{phase.hint}{job.worker_id ? ` · ${job.worker_id}` : ""}</p><p>{job.prompt}</p><div className="bigProgress"><span style={{ width: `${Math.max(job.progress, 2)}%` }} /></div><small>{job.progress}%</small>{onCancel && <button onClick={onCancel}>Cancelar</button>}</div>}
+      {job?.status === "failed" && <div className="failedLive"><CircleAlert /><h3>No se pudo generar</h3><p>{job.error || "La computadora informó un error."}</p>{onDelete && <button className="ghostButton" onClick={onDelete}><Trash2 size={14} /> Borrar</button>}</div>}
       {job?.status === "cancelled" && <div className="emptyLive"><X /><h3>Generación cancelada</h3></div>}
       {job?.status === "succeeded" && artifact && <div className="completedLive">
         <button className="liveMedia" onClick={() => setOpen(artifact)} aria-label={`Ampliar ${artifact.name}`}><Media artifact={artifact} alt={job.prompt || artifact.name} /><span><Expand size={16} /> Ampliar</span></button>
-        <div className="artifactActions"><div><Sparkles size={16} /><span><b>{artifact.name}</b><small>{(artifact.size / 1024 / 1024).toFixed(1)} MB</small></span></div><a href={artifact.url} download={artifact.name}><Download size={16} /> Descargar</a></div>
+        <div className="artifactActions"><div><Sparkles size={16} /><span><b>{artifact.name}</b><small>{(artifact.size / 1024 / 1024).toFixed(1)} MB</small></span></div>{onDelete && <button className="ghostButton" onClick={onDelete} aria-label="Borrar resultado"><Trash2 size={14} /></button>}<a href={`${artifact.url}?download=1`} download={artifact.name}><Download size={16} /> Descargar</a></div>
         {job.artifacts.length > 1 && <div className="artifactStrip">{job.artifacts.slice(1).map((item) => <button key={item.id} onClick={() => setOpen(item)}><Media artifact={item} alt={item.name} /></button>)}</div>}
       </div>}
     </aside>
     {activeOpen && <div className="viewerBackdrop" onMouseDown={() => setOpen(null)}><div className="viewerModal" onMouseDown={(event) => event.stopPropagation()}>
-      <div className="viewerToolbar"><span>{activeOpen.name}</span><a href={activeOpen.url} download={activeOpen.name}><Download size={17} /> Descargar</a><button onClick={() => setOpen(null)} aria-label="Cerrar"><X /></button></div>
+      <div className="viewerToolbar"><span>{activeOpen.name}</span><a href={`${activeOpen.url}?download=1`} download={activeOpen.name}><Download size={17} /> Descargar</a><button onClick={() => setOpen(null)} aria-label="Cerrar"><X /></button></div>
       <div className="viewerCanvas"><Media artifact={activeOpen} alt={job?.prompt || activeOpen.name} large /></div>
     </div></div>}
   </>;

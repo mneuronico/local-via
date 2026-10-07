@@ -65,36 +65,51 @@ export type Artifact = {
   url: string;
 };
 
+export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+
 export type Job = {
   id: string;
-  project_id: string;
   model: string;
+  model_name: string;
   task: string;
   prompt: string;
-  status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  status: JobStatus;
   progress: number;
-  phase?: string;
-  error?: string;
+  phase?: string | null;
+  error?: string | null;
+  worker_id?: string | null;
   created_at: string;
   updated_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
   parameters: Record<string, unknown>;
   artifacts: Artifact[];
+  queue?: { position: number; estimated_wait_seconds: number | null } | null;
+  username?: string;
 };
 
-export type WorkerStatus = {
-  worker_id: string;
-  status: string;
-  backend: string;
-  gpu: { name: string; vram_total_mb: number; vram_free_mb: number } | null;
-  queue_depth: number;
-  active_job_id: string | null;
-  wangp_ready: boolean;
-};
+export type Room = { queued_total: number; running_total: number; workers_online: number; workers_busy: number };
 
-export type WorkerModelCatalog = {
+export type User = { id: string; username: string; display_name: string; role: "student" | "admin"; class_id?: string | null; disabled: boolean; created_at?: string | null; last_login_at?: string | null };
+
+export type Me = { user: User; limits: { max_active_jobs: number; max_upload_mb: number; quota_mb: number; retention_days: number } };
+
+export type WorkerInfo = {
   id: string;
-  name: string;
-  license: string;
-  tasks: string[];
-  installed: boolean;
+  online: boolean;
+  disabled: boolean;
+  last_seen_at: string | null;
+  ip: string | null;
+  backend: string | null;
+  version: string | null;
+  loaded_model: string | null;
+  gpu: { name: string; vram_total_mb: number; vram_free_mb: number; temperature_c?: number } | null;
+  installed_models: string[];
+  current_job_id: string | null;
 };
+
+export type Policy = { enabled_models: string[]; max_pixels: number; max_video_frames: number; max_steps: number; max_audio_seconds: number; max_batch_size: number };
+
+export type ClassGroup = { id: string; name: string; code: string; expires_at: string | null; max_uses: number | null; uses: number; revoked: boolean; students: number; created_at: string };
+
+export type AuditEvent = { id: number; at: string; actor: string | null; action: string; detail: string | null; ip: string | null };

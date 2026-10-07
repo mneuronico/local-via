@@ -1,40 +1,76 @@
 import asyncio
 import contextlib
-import html
+import hashlib
 import os
 import shutil
+import struct
 import sys
 import threading
 import time
+import wave
+import zlib
 from pathlib import Path
 from typing import Callable
-from .catalog import MODEL_VARIANTS
+from .catalog import MODEL_VARIANTS, TASKS
 
 
 Progress = Callable[[int, str], None]
 
 
+class JobCancelled(Exception):
+    """Raised by a backend when the current job was cancelled."""
+
+
+def _png(path: Path, rgb: tuple[int, int, int], size: int = 256) -> None:
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    row = b"\x00" + bytes(rgb) * size
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+                     + chunk(b"IDAT", zlib.compress(row * size)) + chunk(b"IEND", b""))
+
+
+def _wav(path: Path, seconds: float = 1.0, rate: int = 16000) -> None:
+    with wave.open(str(path), "wb") as target:
+        target.setnchannels(1); target.setsampwidth(2); target.setframerate(rate)
+        target.writeframes(b"\x00\x00" * int(seconds * rate))
+
+
 class MockBackend:
+    """Deterministic stand-in for WanGP: no GPU, configurable duration and optional real sample outputs."""
     name = "mock"
     ready = True
 
-    def __init__(self, output_dir: Path):
-        self.output_dir = output_dir
+    def __init__(self, output_dir: Path, seconds: float = 0.6, samples_dir: Path | None = None):
+        self.output_dir, self.seconds, self.samples_dir = output_dir, seconds, samples_dir
         self.cancelled = threading.Event()
+        self.loaded_model: str | None = None
 
-    def availability(self) -> dict[str, bool]: return {}
+    def availability(self) -> dict[str, bool]: return {model_id: True for model_id in TASKS}
+
+    def _sample(self, kind: str) -> Path | None:
+        if not self.samples_dir or not self.samples_dir.is_dir(): return None
+        return next(iter(sorted(self.samples_dir.glob(f"{kind}.*"))), None)
 
     async def execute(self, job: dict, inputs: dict[str, Path | list[Path]], progress: Progress) -> list[Path]:
         self.cancelled.clear()
-        for step in range(1, 6):
-            if self.cancelled.is_set(): raise asyncio.CancelledError()
-            await asyncio.sleep(.12); progress(step * 18, "mock inference")
+        steps = 5
+        for step in range(1, steps + 1):
+            if self.cancelled.is_set(): raise JobCancelled()
+            await asyncio.sleep(self.seconds / steps); progress(step * 18, "inference")
+        self.loaded_model = job["model"]
         target = self.output_dir / job["id"]
         target.mkdir(parents=True, exist_ok=True)
-        output = target / "preview.svg"
-        prompt = html.escape(job.get("prompt") or "Media transformation")
-        model = html.escape(job["model"])
-        output.write_text(f'''<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="768"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#173d31"/><stop offset="1" stop-color="#b2674b"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><circle cx="1040" cy="160" r="280" fill="#f2d27a" opacity=".16"/><text x="72" y="105" fill="#f1d47c" font-family="Arial" font-size="24" letter-spacing="4">LOCAL VIA · MOCK OUTPUT</text><text x="72" y="590" fill="white" font-family="Arial" font-size="50">{model}</text><foreignObject x="72" y="625" width="1040" height="100"><div xmlns="http://www.w3.org/1999/xhtml" style="color:#e1e9e4;font:26px Arial;line-height:1.35">{prompt}</div></foreignObject></svg>''', encoding="utf-8")
+        family = job["task"].split(".", 1)[0]
+        kind = "image" if family == "image" else "video" if family in ("video", "character") else "audio"
+        sample = self._sample(kind)
+        if sample:
+            output = target / f"{kind}{sample.suffix.lower()}"
+            shutil.copyfile(sample, output)
+        elif kind == "audio":
+            output = target / "audio.wav"; _wav(output)
+        else:
+            digest = hashlib.sha256((job.get("prompt") or job["model"]).encode()).digest()
+            output = target / f"{kind}.png"; _png(output, (digest[0], digest[1], digest[2]))
         progress(100, "complete")
         return [output]
 

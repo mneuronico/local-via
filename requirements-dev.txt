@@ -1,0 +1,5 @@
+# Hub + mock worker + tests, for development and CI (python -m venv .venv).
+-r hub/requirements.txt
+httpx==0.28.1
+nvidia-ml-py==13.580.65
+pytest==9.1.1

@@ -4,8 +4,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Local Via — AI audiovisual studio",
-  description: "A local-first audiovisual AI studio powered by WanGP.",
+  title: "Local Via — Sala de computación",
+  description: "Estudio audiovisual con IA local para la sala de computación, basado en WanGP.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

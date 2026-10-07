@@ -1,7 +1,0 @@
-.runtime
-.next
-data
-node_modules
-test-results
-playwright-report
-worker/.venv
