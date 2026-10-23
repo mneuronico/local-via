@@ -25,3 +25,6 @@ worker/certs/
 
 # Quick (shortened) bandwidth runs; only the full run is published
 docs/bandwidth/results-quick.json
+
+# Install logs and the agent's log, per machine
+logs/

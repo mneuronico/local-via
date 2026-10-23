@@ -109,7 +109,18 @@ En una copia limpia del repositorio:
 
 Durante esta prueba se encontró y corrigió un problema: si la computadora tiene el mismo nombre que el usuario de Windows, el nombre de la cuenta es ambiguo. Los scripts ahora asignan permisos por SID.
 
-**Pendiente de validar en la sala:** la regla de firewall y las tareas programadas, porque requieren Administrador en las PCs reales. También la opción B con un túnel real de Cloudflare y el acceso por la VPN de la universidad.
+Revisión de requisitos y logs (después de un primer intento de instalación en la sala, en una PC sin Git):
+
+- [`scripts/check-prereqs.ps1`](../scripts/check-prereqs.ps1) en la PC de desarrollo: detectó GPU, driver, Git, conda, espacio libre y acceso a GitHub, PyPI y Hugging Face. Sin Administrador, marcó `[FALTA] Administrador` para el rol hub.
+- Simulando la PC de la sala (PATH sin Git, conda ni Python), `install-wangp.ps1` listó los tres `[FALTA]` con su solución y se detuvo antes de cambiar nada, con código de salida 1.
+- Un `git clone` que falla dentro de `install-worker.ps1` → `install-wangp.ps1` dejó la salida de git y el error en un solo log, informado una sola vez.
+- `install-wangp.ps1` sobre una instalación existente: verificó WanGP (15 de 15 modelos reconocidos y descargados).
+- El token que se pasa a `install-worker.ps1` no queda en el log (el encabezado de la transcripción lo repite; se reemplaza por `<oculto>`).
+- El agente escribe `logs\worker.log` con `Agente iniciado` y `Conectado al hub`; si el archivo no se puede escribir, sigue funcionando y lo avisa por consola.
+
+Durante esta prueba se encontró y corrigió un problema: en Windows PowerShell, un mensaje de git por stderr detenía el script aunque se redirigiera con `2>$null`.
+
+**Pendiente de validar en la sala:** la regla de firewall y las tareas programadas, porque requieren Administrador en las PCs reales. Eso incluye la espera de los primeros mensajes del agente en `install-worker.ps1` y la comprobación del puerto en `install-hub.ps1`. También la opción B con un túnel real de Cloudflare y el acceso por la VPN de la universidad.
 
 ## 6. Ancho de banda
 

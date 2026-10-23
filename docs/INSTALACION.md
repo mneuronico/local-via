@@ -17,7 +17,7 @@ Para cada computadora hace falta:
 | Sistema | Windows 10/11 de 64 bits, con una cuenta local que pueda ejecutar tareas programadas |
 | GPU | NVIDIA con driver actualizado (todas iguales en esta sala) |
 | Disco | Unos 250 GB libres para los modelos, preferentemente en un disco secundario |
-| Software | Git, Python 3.11 o 3.12 (solo en el hub, para `.venv`), Node.js LTS (solo para compilar la interfaz) |
+| Software | Git y Anaconda o Miniconda en todas las PCs; en el hub, además, Python 3.11 o 3.12 (el de Anaconda sirve) y Node.js LTS para compilar la interfaz. **No** hace falta el CUDA Toolkit ni instalar WanGP a mano |
 
 Datos de red que hay que pedirle a TI de la universidad:
 
@@ -28,12 +28,40 @@ Datos de red que hay que pedirle a TI de la universidad:
    - **Opción B (Cloudflare Tunnel):** un dominio administrado en Cloudflare y la decisión de usar Cloudflare Access.
 4. **Certificado TLS (recomendado):** si TI puede emitir un certificado para el nombre del hub con la CA institucional, los navegadores no muestran advertencias. Si no, el instalador genera uno autofirmado.
 
-Clonar el repositorio en **la misma ruta en todas las PCs** (por ejemplo `D:\local-via`):
+Todos los comandos de esta guía se ejecutan en **Anaconda PowerShell Prompt abierto como Administrador** (menú Inicio → clic derecho → *Ejecutar como administrador*). Hay que usar esa consola porque el instalador de WanGP usa conda.
+
+Clonar el repositorio en **la misma ruta en todas las PCs** (por ejemplo `D:\local-via`) y habilitar los scripts para esa consola:
 
 ```powershell
 git clone https://github.com/mneuronico/local-via.git D:\local-via
 cd D:\local-via
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
+
+Si `git` "no se reconoce como nombre de un cmdlet", falta Git: `winget install --id Git.Git -e`, y después cerrar y volver a abrir la consola.
+
+### Revisar requisitos
+
+```powershell
+.\scripts\check-prereqs.ps1             # PC con GPU
+.\scripts\check-prereqs.ps1 -Role hub   # PC que hará de hub
+```
+
+El script no cambia nada. Para cada requisito (Git, conda, driver de NVIDIA, espacio en disco, acceso a GitHub, PyPI y Hugging Face, permisos de Administrador) muestra `[OK]`, `[AVISO]` (funciona, pero conviene corregirlo) o `[FALTA]`, junto con cómo resolverlo. Los instaladores hacen la misma revisión al empezar y se detienen antes de tocar nada si falta algo.
+
+### Instalar WanGP en cada PC con GPU
+
+Se puede hacer antes de tener el hub:
+
+```powershell
+.\scripts\install-wangp.ps1
+```
+
+Descarga WanGP en `.runtime\Wan2GP` y crea su propio entorno de conda (`env_conda`); la primera vez tarda entre 15 y 30 minutos. Al terminar verifica que WanGP arranque e informa cuántos modelos del catálogo reconoce y cuántos ya están descargados. Los modelos se descargan aparte (ver [Descarga inicial de modelos](#descarga-inicial-de-modelos-en-la-primera-pc)).
+
+### Logs
+
+Cada script guarda todo lo que hace, incluida la salida de git, pip y npm, en `logs\<script>-<fecha>.log`. Los tokens se reemplazan por `<oculto>` y las contraseñas nunca pasan por el log. Si algo falla, el script muestra la ruta del archivo que hay que mandar a quien ayude con la instalación.
 
 ## 1. Hub (una sola vez, en `aula-pc-01`)
 
@@ -97,7 +125,7 @@ También se puede hacer desde **Administración → Computadoras → Registrar**
    .\scripts\install-worker.ps1 -HubUrl https://aula-pc-01:8443 -Token <token de esta PC> -CaFile D:\hub.crt -ModelSource \\aula-pc-01\local-via-ckpts
    ```
 
-El script instala WanGP (con su propio Python), copia los modelos, escribe `worker\.env` (legible solo por la cuenta que corre el agente) y registra la tarea **Local Via Worker**.
+El script instala WanGP (si no estaba), copia los modelos, escribe `worker\.env` (legible solo por la cuenta que corre el agente) y registra la tarea **Local Via Worker**. Después espera hasta 90 segundos y muestra los primeros mensajes del agente: lo normal es ver `Conectado al hub`. Si en su lugar aparece `El hub rechazó al worker`, el token es incorrecto; `Sin conexión con el hub` indica un problema de red, firewall o certificado.
 
 En `aula-pc-01` usar también `-HubUrl https://aula-pc-01:8443` (o `https://localhost:8443`).
 
@@ -105,8 +133,9 @@ Comprobación: en **Administración → Sala** la computadora aparece como *libr
 
 ### Descarga inicial de modelos en la primera PC
 
+Con WanGP ya instalado (`.\scripts\install-wangp.ps1`):
+
 ```powershell
-.\scripts\install-wangp.ps1
 .runtime\Wan2GP\env_conda\python.exe scripts\smoke_wangp_model.py z_image
 ```
 
@@ -133,9 +162,20 @@ En `https://aula-pc-01:8443` con la cuenta de administración:
 | Bloquear a un usuario | Administración → Usuarios → Deshabilitar (cierra sus sesiones) |
 | Auditoría | Administración → Auditoría (ingresos, altas, cambios de política) |
 | Reiniciar servicios | `Restart-ScheduledTask "Local Via Hub"` / `"Local Via Worker"` (o reiniciar la PC) |
-| Ver logs del agente en primer plano | Detener la tarea y ejecutar `.runtime\Wan2GP\env_conda\python.exe -m worker` |
+| Ver qué está haciendo el agente | `logs\worker.log` en esa PC (conexión con el hub, pedidos, errores) |
+| Ver el agente en primer plano | Detener la tarea y ejecutar `.runtime\Wan2GP\env_conda\python.exe -m worker` |
 
 Los resultados se borran automáticamente a los 14 días (`LOCALVIA_HUB_RETENTION_DAYS` en `hub\.env`). Respaldar periódicamente `data\hub\hub.db` si se quiere conservar las cuentas.
+
+### Si algo falla
+
+| Mensaje | Qué hacer |
+|---|---|
+| `git` / `conda` "no se reconoce como nombre de un cmdlet" | Falta instalar ese programa, o la consola no es Anaconda PowerShell Prompt. `.\scripts\check-prereqs.ps1` dice cuál falta |
+| "la ejecución de scripts está deshabilitada en este sistema" | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` en esa consola |
+| "Ejecutá ... como administrador" / `[FALTA] Administrador` | Cerrar la consola y abrirla con *Ejecutar como administrador* |
+| Cualquier otro error de un instalador | Mandar el archivo de `logs\` que indica el mensaje final |
+| La PC no aparece en Administración → Sala | Ver `logs\worker.log` en esa PC |
 
 ## 6. Actualizar
 
@@ -184,3 +224,4 @@ Quita las tareas programadas y la regla de firewall. Los datos (`data\`) y los m
 | `LOCALVIA_WORKER_CA_FILE` | Certificado del hub que el agente debe aceptar |
 | `LOCALVIA_WORKER_BACKEND` | `wangp` (real) o `mock` (pruebas sin GPU) |
 | `LOCALVIA_WORKER_MAX_GPU_TEMP_C` | No toma pedidos nuevos con la GPU a esta temperatura o más (por defecto 85 °C) |
+| `LOCALVIA_WORKER_LOG_FILE` | Archivo de log del agente (por defecto `logs\worker.log`, rota a los 2 MB y guarda 3 anteriores) |

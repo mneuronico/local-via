@@ -13,6 +13,8 @@ class WorkerSettings(BaseSettings):
     ca_file: Path | None = None
 
     data_dir: Path = Path("data/worker")
+    # The agent runs as a scheduled task with no console: this file is where its messages end up. Empty = console only.
+    log_file: Path | None = Path("logs/worker.log")
     backend: str = "mock"
     wangp_root: Path = Path(".runtime/Wan2GP")
     wangp_cli_args: str = "--attention sdpa --profile 4 --perc-reserved-mem-max 0.25"

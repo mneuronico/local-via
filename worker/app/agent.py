@@ -73,6 +73,8 @@ class Agent:
 
     async def run(self) -> None:
         backoff = 1.0
+        connected = False
+        log.info("Agente iniciado: hub %s, backend %s", self.settings.hub_url, self.backend.name)
         async with self._client() as client:
             while not self.stopping.is_set():
                 try:
@@ -82,14 +84,19 @@ class Agent:
                         log.warning("GPU a %s °C: espero a que baje antes de aceptar trabajo", temperature)
                         await self._sleep(15); continue
                     response = await client.post("/worker-api/claim", json={"state": state}, timeout=httpx.Timeout(90.0, connect=10.0))
-                    if response.status_code == 204: backoff = 1.0; continue
                     if response.status_code in (401, 403):
+                        connected = False
                         log.error("El hub rechazó al worker (%s): %s", response.status_code, response.text[:200])
                         await self._sleep(30); continue
                     response.raise_for_status()
                     backoff = 1.0
+                    if not connected:
+                        connected = True
+                        log.info("Conectado al hub, %d modelos instalados", len(state["installed_models"]))
+                    if response.status_code == 204: continue
                     await self.process(client, response.json())
                 except (httpx.TransportError, httpx.HTTPStatusError) as error:
+                    connected = False
                     log.warning("Sin conexión con el hub (%s). Reintento en %.0f s", error, backoff)
                     await self._sleep(backoff); backoff = min(backoff * 2, 30.0)
 

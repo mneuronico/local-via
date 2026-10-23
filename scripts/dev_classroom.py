@@ -84,7 +84,8 @@ def main() -> None:
     time.sleep(1.5)
     for name, token in tokens.items():
         worker_env = {**os.environ, "LOCALVIA_WORKER_HUB_URL": args.worker_hub_url or hub_url, "LOCALVIA_WORKER_TOKEN": token, "LOCALVIA_WORKER_BACKEND": "mock",
-                      "LOCALVIA_WORKER_DATA_DIR": str(data_dir / name), "LOCALVIA_WORKER_MOCK_SECONDS": str(args.mock_seconds),
+                      "LOCALVIA_WORKER_DATA_DIR": str(data_dir / name), "LOCALVIA_WORKER_LOG_FILE": str(data_dir / name / "worker.log"),
+                      "LOCALVIA_WORKER_MOCK_SECONDS": str(args.mock_seconds),
                       "LOCALVIA_WORKER_MAX_GPU_TEMP_C": "0"}
         if args.samples_dir: worker_env["LOCALVIA_WORKER_MOCK_SAMPLES_DIR"] = str(Path(args.samples_dir).resolve())
         if args.tls: worker_env["LOCALVIA_WORKER_CA_FILE"] = str(data_dir / "certs" / "hub.crt")
