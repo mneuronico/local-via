@@ -57,7 +57,7 @@ Se puede hacer antes de tener el hub:
 .\scripts\install-wangp.ps1
 ```
 
-Descarga WanGP en `.runtime\Wan2GP` y crea su propio entorno de conda (`env_conda`); la primera vez tarda entre 15 y 30 minutos. Al terminar verifica que WanGP arranque e informa cuántos modelos del catálogo reconoce y cuántos ya están descargados. Los modelos se descargan aparte (ver [Descarga inicial de modelos](#descarga-inicial-de-modelos-en-la-primera-pc)).
+Descarga WanGP en `.runtime\Wan2GP` y crea su propio entorno de conda (`env_conda`); la primera vez tarda entre 15 y 30 minutos. Siempre instala la misma versión de WanGP, la que se usó para probar el catálogo (parámetro `-WanGPCommit`), así todas las PCs quedan iguales aunque WanGP publique versiones nuevas. Si una instalación se cortó a la mitad, volver a ejecutar el script rehace el entorno. Al terminar verifica que WanGP arranque e informa cuántos modelos del catálogo reconoce y cuántos ya están descargados. Los modelos se descargan aparte (ver [Descarga inicial de modelos](#descarga-inicial-de-modelos-en-la-primera-pc)).
 
 ### Logs
 
@@ -174,6 +174,8 @@ Los resultados se borran automáticamente a los 14 días (`LOCALVIA_HUB_RETENTIO
 | `git` / `conda` "no se reconoce como nombre de un cmdlet" | Falta instalar ese programa, o la consola no es Anaconda PowerShell Prompt. `.\scripts\check-prereqs.ps1` dice cuál falta |
 | "la ejecución de scripts está deshabilitada en este sistema" | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` en esa consola |
 | "Ejecutá ... como administrador" / `[FALTA] Administrador` | Cerrar la consola y abrirla con *Ejecutar como administrador* |
+| `winget` falla con `0x8a15000f` ("Data required by the source is missing") | Instalar Git con `conda install -y git` desde Anaconda PowerShell Prompt, o desde https://git-scm.com |
+| `Invalid build number` / `Invalid wheel filename` en el instalador de WanGP | Pasaba con versiones anteriores de los scripts: `git pull` y volver a ejecutar `.\scripts\install-wangp.ps1` |
 | Cualquier otro error de un instalador | Mandar el archivo de `logs\` que indica el mensaje final |
 | La PC no aparece en Administración → Sala | Ver `logs\worker.log` en esa PC |
 

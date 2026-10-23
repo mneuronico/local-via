@@ -8,9 +8,11 @@ from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
 ROOT = (PROJECT / ".runtime" / "Wan2GP").resolve()
-INPUTS = Path("N:/local-via-data/smoke-inputs")
-OUTPUTS = Path("N:/local-via-data/smoke-outputs")
-REPORTS = Path("N:/local-via-data/smoke-reports")
+# The development PC keeps this on its N: data disk; elsewhere it goes under data\ (LOCALVIA_SMOKE_DIR overrides both).
+DATA = Path(os.environ.get("LOCALVIA_SMOKE_DIR") or ("N:/local-via-data" if Path("N:/").exists() else PROJECT / "data" / "smoke"))
+INPUTS = DATA / "smoke-inputs"
+OUTPUTS = DATA / "smoke-outputs"
+REPORTS = DATA / "smoke-reports"
 OUTPUTS.mkdir(parents=True, exist_ok=True)
 REPORTS.mkdir(parents=True, exist_ok=True)
 os.chdir(ROOT)

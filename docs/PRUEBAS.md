@@ -120,6 +120,25 @@ Revisión de requisitos y logs (después de un primer intento de instalación en
 
 Durante esta prueba se encontró y corrigió un problema: en Windows PowerShell, un mensaje de git por stderr detenía el script aunque se redirigiera con `2>$null`.
 
+Primer intento real en la sala: el instalador de WanGP falló al instalar SpargeAttention (`Invalid build number`). Hubo dos causas:
+
+1. **WanGP sin versión fija.** El script clonaba la última versión de WanGP (18.21, publicada el día anterior) y no la probada (89a77e3).
+2. **URLs rotas por `conda run`.** WanGP instala con `conda run`, que en Windows pasa por un `.bat`. Ahí `%2B` (un `+` codificado en la URL) se convierte en `B`. En la RTX 2060 de desarrollo no aparecía porque ese perfil no instala SpargeAttention; la 18.21 tiene además otras URLs con `%2B` que afectan a todos los perfiles NVIDIA.
+
+Corrección en `install-wangp.ps1`:
+
+- WanGP queda fijado en 89a77e3.
+- Durante la instalación, las URLs con `%2B` se reemplazan por `+`, que GitHub acepta. Se comprobó que las 13 descargas de Windows de esa versión responden.
+- Un entorno a medio hacer se reconstruye al volver a ejecutar el script.
+
+Se simuló la PC de la sala (WanGP 18.21 clonado y `env_conda` incompleto). El script pasó a 89a77e3, detectó el entorno incompleto, ajustó la configuración y la restauró al terminar.
+
+La instalación completa en esa simulación encontró un tercer problema, que la verificación final detectó: aun con WanGP fijado, pip instala la última versión de las dependencias sin versión fija. `tensordict` 0.15 (posterior a las pruebas) exige torch 2.11 o más nuevo, y pip reemplazó torch 2.10 con CUDA por torch 2.14 sin CUDA. Unos 150 paquetes quedaron en versiones distintas a las probadas.
+
+Corrección: [`scripts/wangp-constraints.txt`](../scripts/wangp-constraints.txt) tiene las versiones exactas del entorno probado y se le pasa a cada llamada de pip del instalador (`PIP_CONSTRAINT`). Quedan afuera solo los núcleos de atención que WanGP elige según la generación de la GPU (SageAttention, SpargeAttention, lightx2v). Esto también fija `triton-windows` en la versión probada.
+
+**Pendiente:** una instalación completa con las restricciones; la prueba se detuvo antes de terminar. Mientras tanto, en la primera PC de la sala WanGP 18.21 se instaló a mano: se reemplazó `%2B` por `+` en `setup_config.json` y se volvió a correr el script anterior. La verificación reconoció los 15 modelos, y `smoke_wangp_model.py z_image` generó una imagen. Hubo que cambiar a mano una ruta fija a `N:\` en ese script, que ahora usa `data\smoke` cuando no hay disco N:. En esa PC el script nuevo deja WanGP 18.21 como está, porque ya funciona, y solo avisa que no es la versión probada.
+
 **Pendiente de validar en la sala:** la regla de firewall y las tareas programadas, porque requieren Administrador en las PCs reales. Eso incluye la espera de los primeros mensajes del agente en `install-worker.ps1` y la comprobación del puerto en `install-hub.ps1`. También la opción B con un túnel real de Cloudflare y el acceso por la VPN de la universidad.
 
 ## 6. Ancho de banda
