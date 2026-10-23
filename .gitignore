@@ -28,3 +28,6 @@ docs/bandwidth/results-quick.json
 
 # Install logs and the agent's log, per machine
 logs/
+
+# Worker tokens saved while registering the lab PCs (docs/INSTALACION.md, step 2)
+tokens.txt

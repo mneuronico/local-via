@@ -170,8 +170,8 @@ function Assert-Prerequisites {
 
     $git = Get-Command git.exe -ErrorAction SilentlyContinue
     if ($git) { Add-Result "OK" "Git" ((& git.exe --version) -replace "^git version ", "") }
-    elseif ($needsWangp) { Add-Result "FALTA" "Git" "Instalalo con:  winget install --id Git.Git -e   (o desde https://git-scm.com). Después cerrá y volvé a abrir la consola." }
-    else { Add-Result "AVISO" "Git" "Sin Git no se puede actualizar con 'git pull'. Instalalo con:  winget install --id Git.Git -e" }
+    elseif ($needsWangp) { Add-Result "FALTA" "Git" "Instalalo con:  conda install -y git   (o desde https://git-scm.com y después cerrá y volvé a abrir la consola)." }
+    else { Add-Result "AVISO" "Git" "Sin Git no se puede actualizar con 'git pull'. Instalalo con:  conda install -y git   (o desde https://git-scm.com)." }
 
     $python = Find-Python
     if ($needsWangp) {
@@ -213,7 +213,7 @@ function Assert-Prerequisites {
         } else {
             $version = & $python -c "import sys; print('%d.%d' % sys.version_info[:2])"
             if ([version]$version -lt [version]"3.11") { Add-Result "FALTA" "Python 3.11 o 3.12" "El python.exe del PATH es $version ($python). Instalá 3.11 o 3.12." }
-            elseif ([version]$version -gt [version]"3.12") { Add-Result "AVISO" "Python 3.11 o 3.12" "El python.exe del PATH es $version ($python); se probó con 3.11 y 3.12." }
+            elseif ([version]$version -gt [version]"3.12") { Add-Result "AVISO" "Python 3.11 o 3.12" "El python.exe del PATH es $version ($python); el hub se probó con 3.11 y 3.12. Creá un entorno con la versión probada y volvé a ejecutar el script desde ahí:  conda create -y -n localvia-hub python=3.12 nodejs   y después   conda activate localvia-hub" }
             else { Add-Result "OK" "Python $version" $python }
         }
     }
@@ -221,8 +221,31 @@ function Assert-Prerequisites {
     if ($Role -eq "hub") {
         if (Test-Path -LiteralPath (Join-Path $script:RepoRoot "out\index.html")) { Add-Result "OK" "Interfaz web" "ya compilada (out\)" }
         elseif (Get-Command npm.cmd -ErrorAction SilentlyContinue) { Add-Result "OK" "Node.js" ((& node.exe --version) -join "") }
-        else { Add-Result "FALTA" "Node.js" "Hace falta para compilar la interfaz web. Instalalo con:  winget install --id OpenJS.NodeJS.LTS -e   (o copiá la carpeta out\ ya compilada desde otra PC)." }
+        else { Add-Result "FALTA" "Node.js" "Hace falta para compilar la interfaz web. Instalalo en el entorno de conda activo con:  conda install -y nodejs   (o desde https://nodejs.org, o copiá la carpeta out\ ya compilada desde otra PC)." }
         if (-not (Test-Url "https://pypi.org")) { Add-Result "FALTA" "Acceso a https://pypi.org" "No hay conexión. Revisá la red o el proxy de la universidad." }
+
+        # The hub's firewall rule covers Domain and Private networks only: on a Public network nobody could connect.
+        $profiles = @(Get-NetConnectionProfile -ErrorAction SilentlyContinue)
+        $public = @($profiles | Where-Object { "$($_.NetworkCategory)" -eq "Public" })
+        if (-not $profiles.Count) { Add-Result "AVISO" "Tipo de red" "No se pudo leer el tipo de red de Windows. Revisalo con:  Get-NetConnectionProfile" }
+        elseif ($public.Count) {
+            $names = ($public | ForEach-Object { "$($_.InterfaceAlias) ($($_.Name))" }) -join ", "
+            Add-Result "AVISO" "Tipo de red" "La red $names está como Pública. La regla de firewall del hub solo vale en redes de Dominio o Privadas, así que ni los estudiantes ni las otras PCs podrían conectarse. Pedile a TI que la clasifique como Dominio o Privada (o, como Administrador:  Set-NetConnectionProfile -InterfaceAlias '$($public[0].InterfaceAlias)' -NetworkCategory Private)."
+        } else {
+            Add-Result "OK" "Tipo de red" (($profiles | ForEach-Object { "$($_.InterfaceAlias): $($_.NetworkCategory)" }) -join "; ")
+        }
+
+        # The address and subnet to pass to install-hub.ps1 (-HostNames, -LabSubnet), so nobody has to work them out.
+        foreach ($p in $profiles) {
+            $ip = Get-NetIPAddress -InterfaceIndex $p.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { "$($_.PrefixOrigin)" -ne "WellKnown" -and $_.PrefixLength -lt 32 } | Select-Object -First 1
+            if (-not $ip) { continue }
+            $bytes = ([Net.IPAddress]$ip.IPAddress).GetAddressBytes()
+            $mask = [uint32]([math]::Pow(2, 32) - [math]::Pow(2, 32 - $ip.PrefixLength))
+            $maskBytes = [BitConverter]::GetBytes($mask); [Array]::Reverse($maskBytes)
+            $network = (0..3 | ForEach-Object { $bytes[$_] -band $maskBytes[$_] }) -join "."
+            $dhcp = if ("$($ip.PrefixOrigin)" -eq "Dhcp") { " Es una IP por DHCP: pedile a TI que sea fija o una reserva para esta PC." } else { "" }
+            Add-Result "OK" "Dirección de esta PC" "$env:COMPUTERNAME, $($ip.IPAddress) en la subred $network/$($ip.PrefixLength) ($($p.InterfaceAlias)). Para install-hub.ps1:  -HostNames `"$env:COMPUTERNAME,$($ip.IPAddress)`" -LabSubnet `"$network/$($ip.PrefixLength)`".$dhcp"
+        }
     }
 
     if ($Role -eq "worker") {

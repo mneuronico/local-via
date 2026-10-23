@@ -5,7 +5,7 @@ Estudio audiovisual con IA que corre **en las computadoras de una sala de comput
 Local Via usa [WanGP](https://github.com/deepbeepmeep/Wan2GP) como motor de generación y lo indica en la interfaz y en esta documentación, como piden los términos de su API. No hace falta instalar WanGP por separado: lo instalan los scripts de este repositorio (ver [Instalar en la sala](#instalar-en-la-sala)).
 
 ```text
-Estudiantes ──HTTPS──▶ Hub (1 PC) ◀──HTTPS saliente── Agente en cada PC con GPU (8)
+Estudiantes ──HTTPS──▶ Hub (1 PC) ◀──HTTPS saliente── Agente en cada PC con GPU (16)
                         cuentas · cola · resultados        WanGP · un pedido a la vez
 ```
 
@@ -15,11 +15,11 @@ Todo se hace en **Anaconda PowerShell Prompt abierto como administrador** (menú
 
 1. **Requisitos en cada PC:**
    - driver de NVIDIA actualizado;
-   - [Git](https://git-scm.com): `winget install --id Git.Git -e` (después, cerrar y volver a abrir la consola);
-   - [Anaconda o Miniconda](https://www.anaconda.com/download).
+   - [Anaconda o Miniconda](https://www.anaconda.com/download);
+   - Git: `conda install -y git` desde Anaconda PowerShell Prompt (o el instalador de [git-scm.com](https://git-scm.com), y después cerrar y volver a abrir la consola).
 
-   En la PC del hub hace falta además [Node.js LTS](https://nodejs.org).
-2. **Bajar este repositorio**, en la misma ruta en todas las PCs:
+   La PC del hub necesita además Python 3.12 y Node.js, que se instalan con conda en el paso 5.
+2. **Bajar este repositorio**, en la misma ruta en todas las PCs (si ya estaba, `git pull` para traer la última versión):
 
    ```powershell
    git clone https://github.com/mneuronico/local-via.git D:\local-via
@@ -27,7 +27,7 @@ Todo se hace en **Anaconda PowerShell Prompt abierto como administrador** (menú
    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass   # permite ejecutar los scripts en esta consola
    ```
 
-3. **Revisar qué falta.** Este script no cambia nada; muestra `[OK]`, `[AVISO]` o `[FALTA]` y cómo resolver cada cosa:
+3. **Revisar qué falta.** Este script no cambia nada; muestra `[OK]`, `[AVISO]` o `[FALTA]` y cómo resolver cada cosa. En el hub muestra además la IP y la subred para el instalador, y avisa si la red de Windows está como Pública (con red Pública nadie puede conectarse al hub):
 
    ```powershell
    .\scripts\check-prereqs.ps1             # PC con GPU
@@ -40,20 +40,31 @@ Todo se hace en **Anaconda PowerShell Prompt abierto como administrador** (menú
    .\scripts\install-wangp.ps1
    ```
 
-5. **Hub (una vez) y agente (en cada PC con GPU, incluida la del hub):**
+5. **Hub, una vez, en la PC elegida.** Desde un entorno de conda con Python 3.12 y Node.js, porque el Python que trae Anaconda (3.14) no es el probado:
 
    ```powershell
-   # En la PC del hub
+   conda create -y -n localvia-hub python=3.12 nodejs
+   conda activate localvia-hub
    .\scripts\install-hub.ps1 -Mode lan -HostNames "aula-pc-01,10.20.30.11" -LabSubnet "10.20.30.0/24" -StudentNetworks "10.8.0.0/16" -AdminUser profe
-   .venv\Scripts\python.exe -m hub.cli add-worker aula-pc-01   # repetir para cada PC; guarda el token
-
-   # En cada PC con GPU
-   .\scripts\install-worker.ps1 -HubUrl https://aula-pc-01:8443 -Token <token> -CaFile D:\hub.crt
    ```
+
+   Pide la contraseña del administrador y al final tiene que decir `El hub responde en el puerto 8443`. Después, registrar las PCs. Cada token se muestra una sola vez, y en este ejemplo quedan guardados en `tokens.txt`:
+
+   ```powershell
+   1..16 | ForEach-Object { .venv\Scripts\python.exe -m hub.cli add-worker ("aula-pc-{0:D2}" -f $_) } | Tee-Object tokens.txt
+   ```
+
+6. **Agente en cada PC con GPU, incluida la del hub.** Antes, copiar `hub\certs\hub.crt` del hub a cada PC (nunca `hub.key`):
+
+   ```powershell
+   .\scripts\install-worker.ps1 -HubUrl https://aula-pc-01:8443 -Token <token de esa PC> -CaFile D:\hub.crt
+   ```
+
+   Al final tiene que decir `El agente se conectó al hub`. La PC aparece en **Administración → Sala**.
 
 Cada script guarda todo lo que hace en `logs\` (sin tokens ni contraseñas), y el agente escribe sus mensajes en `logs\worker.log`. Si algo falla, el script lo dice y muestra la ruta del archivo que hay que mandar.
 
-Los detalles (datos de red para pedirle a TI, opción B con Cloudflare Tunnel, copia de modelos entre PCs) están en [docs/INSTALACION.md](docs/INSTALACION.md).
+Los detalles están en [docs/INSTALACION.md](docs/INSTALACION.md): qué datos de red pedirle a TI, la opción B con Cloudflare Tunnel, cómo bajar los modelos en una PC y compartirlos con las demás, y qué hacer si algo falla.
 
 ## Características
 
@@ -96,7 +107,7 @@ Un estudiante consume 6,5 kbit/s mientras espera y unos 12 MB por cada video que
 
 | Documento | Contenido |
 |---|---|
-| [docs/INSTALACION.md](docs/INSTALACION.md) | Guía paso a paso para instalar el hub y las 8 PCs (opciones A y B) y preparar la clase |
+| [docs/INSTALACION.md](docs/INSTALACION.md) | Guía paso a paso para instalar el hub y todas las PCs (opciones A y B), compartir los modelos y preparar la clase |
 | [docs/SEGURIDAD.md](docs/SEGURIDAD.md) | Superficie expuesta, autenticación, autorización, datos y retención, límites conocidos, recomendaciones para TI |
 | [docs/ANCHO_DE_BANDA.md](docs/ANCHO_DE_BANDA.md) | Medición real del consumo por estudiante y para N estudiantes a la vez |
 | [docs/PRUEBAS.md](docs/PRUEBAS.md) | Tests, recorridos en navegador, prueba de carga, generación real con GPU, instaladores, TLS y dependencias |
